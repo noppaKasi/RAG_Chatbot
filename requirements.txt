@@ -1,0 +1,10 @@
+langchain
+langchain_ollama
+langchain_community
+langgraph
+langchain-nomic
+nomic[local]
+tiktoken
+qdrant-client
+beautifulsoup4
+requests
