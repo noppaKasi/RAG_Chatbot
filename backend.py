@@ -325,7 +325,7 @@ class Chatbot:
         return {"documents": filtered_docs, "web_search": web_search}
     
     # Web Search
-    def search_url(query, num_results=3):
+    def search_url(self, query, num_results=3):
         """
         Get search results from Google
 
@@ -370,7 +370,7 @@ class Chatbot:
         documents = state.get("documents", [])
 
         # Web search
-        docs = load_doc_url(self.search_url(question))
+        docs = self.load_doc_url(self.search_url(question))
         for doc in docs:
             documents.append(doc)
         return {"documents": documents}
@@ -548,40 +548,46 @@ class Chatbot:
         # Return the final generated answer
         return bot_message
 
-def load_doc_url(urls, chunk_size=500, chunk_overlap=100):
-        """
-        Get and clean content from URLs. Split the content into chunks.
+    def load_doc_url(self, urls, chunk_size=500, chunk_overlap=100):
+            """
+            Get and clean content from URLs. Split the content into chunks.
 
-        Args:
-            urls (list[str]): List of URLs
-            chunk_size (int): Size of the chunks
-            chunk_overlap (int): Overlap between chunks
-        
-        Returns:
-            list[Document]: List of splitted documents
-        """
-        # Load documents
-        docs = [WebBaseLoader(url).load() for url in urls]
-        docs_list = [item for sublist in docs for item in sublist]
+            Args:
+                urls (list[str]): List of URLs
+                chunk_size (int): Size of the chunks
+                chunk_overlap (int): Overlap between chunks
+            
+            Returns:
+                list[Document]: List of splitted documents
+            """
+            # Load documents
+            docs = [WebBaseLoader(url).load() for url in urls]
+            docs_list = [item for sublist in docs for item in sublist]
 
-        # Remove unnecessary spaces from the page content
-        for doc in docs_list:
-            doc.page_content = re.sub(r"(\n|\t| )+", r"\1", doc.page_content)
+            # Remove unnecessary spaces from the page content
+            for doc in docs_list:
+                doc.page_content = re.sub(r"(\n|\t| )+", r"\1", doc.page_content)
 
-        # Split documents
-        text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-            chunk_size=chunk_size, chunk_overlap=chunk_overlap
-        )
-        return text_splitter.split_documents(docs_list)
+            # Split documents
+            text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+                chunk_size=chunk_size, chunk_overlap=chunk_overlap
+            )
+            return text_splitter.split_documents(docs_list)
+
 
 if __name__ == "__main__":
     chatbot = Chatbot()
-    #chatbot.add_docs([Document(page_content="Dummy Document")])
-    #print(chatbot.retrieve_KB("Dummy"))
+    """
+    urls = ['https://api.python.langchain.com/en/latest/vectorstores/langchain_community.vectorstores.qdrant.Qdrant.html']
+    docs = chatbot.load_doc_url(urls)
+    chatbot.add_docs(docs)
+    print(chatbot.retrieve_KB("Qdrant"))
+    """
 
     graph = chatbot.graph
-    chatbot.show_graph()
+    #chatbot.show_graph()
     inputs = {"question": "Tell me about metanoia IT and it's customers",
               'web_search':True}
     chatbot.ask_question(**inputs)
+    chatbot.ask_question("What is Rust programming language.", web_search=True)
     chatbot.print_chat_history()
