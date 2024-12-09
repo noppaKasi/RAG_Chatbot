@@ -17,6 +17,8 @@ from typing import List, Annotated
 from bs4 import BeautifulSoup
 import requests
 
+import websockets
+import asyncio
 
 # LLM model name
 MODEL = "llama3.2"
@@ -538,7 +540,7 @@ class Chatbot:
         events = []
 
         # Iterate through the graph, streaming events
-        for event in graph.stream(inputs, stream_mode="values"):
+        for event in self.graph.stream(inputs, stream_mode="values"):
             events.append(event)
 
         # Get the final answer
@@ -574,20 +576,77 @@ class Chatbot:
             )
             return text_splitter.split_documents(docs_list)
 
+class WebSocketServer:
+    def __init__(self, host, port, model):
+        self.host = host
+        self.port = port
+        self.model = model
+    
+    async def handle_connection(self, websocket, path):
+            """
+            Handles a WebSocket connection by receiving messages from the client,
+            processing them using the AI model, and sending back the response.
+
+            Args:
+            - websocket: The WebSocket connection object.
+            - path: The path of the WebSocket connection.
+
+            Returns:
+            None
+            """
+            async for message in websocket:
+                try:
+                    data = json.loads(message)
+                    session_id = data.get("session_id", "default_session")
+                    input_text = data["input"]
+                    web_search = data["web_search"]
+
+                    answer = self.model.ask_question(input_text, web_search=web_search)
+                    
+                    response = {"answer": answer}
+                    await websocket.send(json.dumps(response))
+                except Exception as e:
+                    error_response = {"error": str(e)}
+                    await websocket.send(json.dumps(error_response))
+    
+    async def start_server(self):
+            """
+            Starts the server and listens for incoming connections.
+
+            This method uses the `websockets.serve` function to create a WebSocket server
+            and binds it to the specified `host` and `port`. It then waits for incoming
+            connections and handles each connection using the `handle_connection` method.
+
+            Note: This method runs indefinitely until the program is terminated.
+
+            Args:
+                self (object): The instance of the class.
+
+            Returns:
+                None
+            """
+            async with websockets.serve(self.handle_connection, self.host, self.port):
+                await asyncio.Future()  # run forever
 
 if __name__ == "__main__":
     chatbot = Chatbot()
     """
+    # Test
+
     urls = ['https://api.python.langchain.com/en/latest/vectorstores/langchain_community.vectorstores.qdrant.Qdrant.html']
     docs = chatbot.load_doc_url(urls)
     chatbot.add_docs(docs)
     print(chatbot.retrieve_KB("Qdrant"))
-    """
 
     graph = chatbot.graph
     #chatbot.show_graph()
     inputs = {"question": "Tell me about metanoia IT and it's customers",
               'web_search':True}
     chatbot.ask_question(**inputs)
-    chatbot.ask_question("What is Rust programming language.", web_search=True)
+    chatbot.ask_question("What is Rust programming language?", web_search=True)
     chatbot.print_chat_history()
+    """
+
+    server = WebSocketServer(host="localhost", port=8765, model=chatbot)
+
+    asyncio.run(server.start_server())
